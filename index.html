@@ -1,0 +1,664 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quiz 요정 SPLY</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --brand-navy: #1F2A4D; /* 짙은 남색 */
+            --brand-yellow: #FEE500; /* 카카오톡 노란색 */
+        }
+        body { font-family: 'Noto Sans KR', sans-serif; background-color: #f0f2f5; }
+        .page { display: none; }
+        .page.active { display: block; }
+        .loader {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid var(--brand-navy);
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        
+        .service-icon-btn {
+            border: 2px solid #e5e7eb;
+            transition: all 0.2s ease-in-out;
+            padding: 1rem;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            border-radius: 0.75rem;
+            cursor: pointer;
+            flex: 1 1 calc(20% - 1rem); /* 5 items per row, with gap */
+            min-width: 80px; /* Minimum width for smaller screens */
+            max-width: 120px; /* Max width to prevent overly large buttons */
+        }
+        .service-icon-btn:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            border-color: var(--brand-navy);
+        }
+        .service-icon-btn.selected {
+            border-color: var(--brand-navy);
+            background-color: #eef2ff;
+            transform: translateY(-2px);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        }
+        .service-icon-btn img {
+            width: 48px;
+            height: 48px;
+            object-fit: contain;
+        }
+
+        /* 정답/오답 스타일 */
+        .question-correct {
+            border-color: var(--brand-navy); /* 정답 맞추면 짙은 남색 테두리 */
+            background-color: #e6ffe6; /* Light green */
+        }
+        .question-incorrect {
+            border-color: red;
+            background-color: #ffe6e6; /* Light red */
+        }
+        .answer-correct {
+            background-color: #FFFACD; /* 오답 선택 시 정답 연노랑 */
+            font-weight: bold;
+        }
+        .answer-incorrect {
+            background-color: #f8d7da; /* Bootstrap danger red */
+        }
+        .explanation {
+            margin-top: 0.75rem;
+            padding-top: 0.75rem;
+            border-top: 1px solid #e5e7eb;
+            font-size: 0.875rem;
+            color: #4b5563;
+        }
+    </style>
+</head>
+<body class="bg-gray-100">
+
+    <div id="app" class="max-w-4xl mx-auto bg-white min-h-screen shadow-lg">
+
+        <div id="login-page" class="page active flex flex-col items-center justify-center h-screen p-8 text-center">
+            <img src="https://i.imgur.com/H6ni2AN.png" alt="SPLY 로고" class="mx-auto w-28 h-28 mb-6 object-contain">
+            
+            <h1 class="text-4xl font-bold text-gray-800 mb-2">Quiz 요정 SPLY</h1>
+            <p class="text-gray-600 mb-8">SPLY와 함께 고객상담 자신감 UP!!</p>
+            
+            <input id="username-input" type="text" placeholder="이름을 입력하세요" class="mb-4 p-3 border rounded-md w-64 text-center text-gray-700 focus:ring-2 focus:ring-[--brand-navy] focus:border-transparent transition-all duration-200" />
+            <p id="username-error" class="text-red-500 text-sm mb-4 hidden">이름을 입력해주세요.</p> 
+            <p id="service-error" class="text-red-500 text-sm mb-4 hidden">서비스를 선택해주세요.</p>
+            
+            <div id="service-icon-container" class="flex flex-wrap justify-center gap-4 mb-8 max-w-full">
+                <!-- 서비스 아이콘 버튼이 여기에 동적으로 렌더링됩니다. -->
+            </div>
+            
+            <button id="start-quiz-btn" class="text-black bg-[--brand-yellow] hover:bg-yellow-400 font-bold py-3 px-12 rounded-full shadow-lg transform hover:scale-105 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed" disabled>
+                <i class="fas fa-magic mr-2"></i> 퀴즈 시작
+            </button>
+            <p id="user-id-display" class="mt-8 text-xs text-gray-400"></p>
+        </div>
+
+        <div id="quiz-page" class="page p-8">
+            <header class="flex justify-between items-center mb-6 pb-4 border-b">
+                <h1 id="quiz-title" class="text-2xl font-bold text-gray-800">오늘의 퀴즈</h1>
+                <button id="back-to-login-from-quiz-btn" class="text-[#1F2A4D] hover:underline font-semibold">
+                    <i class="fas fa-arrow-left mr-1"></i> 처음으로
+                </button>
+            </header>
+            <div id="quiz-container" class="space-y-6"></div>
+            <div id="loader-quiz" class="hidden flex justify-center my-8"><div class="loader"></div></div>
+            <div class="text-center mt-8">
+                <button id="submit-btn" class="hidden bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-8 rounded-lg shadow-md">
+                    정답 확인하기
+                </button>
+            </div>
+        </div>
+        
+        <div id="result-page" class="page p-8">
+            <header class="text-center mb-6 pb-4 border-b">
+                <h1 class="text-3xl font-bold text-gray-800">퀴즈 결과</h1>
+            </header>
+            <div class="bg-blue-50 text-center p-8 rounded-2xl">
+                <p id="score-text" class="text-2xl font-semibold text-[#1F2A4D]"></p>
+                <p id="feedback-text" class="mt-2 text-gray-700"></p>
+            </div>
+            <div id="review-section" class="mt-4"></div>
+            <div class="text-center mt-8 space-x-4">
+                <button id="back-to-login-from-result-btn" class="text-[#1F2A4D] hover:underline font-semibold">
+                    <i class="fas fa-arrow-left mr-1"></i> 처음으로 돌아가기
+                </button>
+            </div>
+        </div>
+
+        <div id="history-page" class="page p-8">
+            <header class="flex justify-between items-center mb-6 pb-4 border-b">
+                <h1 class="text-2xl font-bold text-gray-800">나의 학습 기록</h1>
+                <button id="back-to-login-from-history-btn" class="text-[#1F2A4D] hover:underline font-semibold">
+                    <i class="fas fa-arrow-left mr-1"></i> 처음으로
+                </button>
+            </header>
+            <div id="history-container" class="space-y-4">
+                <p class="text-gray-500">아직 학습 기록이 없습니다.</p>
+            </div>
+        </div>
+
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, collection, addDoc, query, getDocs, Timestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // Canvas 환경에서 제공되는 전역 변수를 사용합니다.
+        const appIdentifier = typeof __app_id !== 'undefined' ? __app_id : 'default-quiz-app-id';
+        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {
+            apiKey: "YOUR_FIREBASE_API_KEY", 
+            authDomain: "YOUR_FIREBASE_AUTH_DOMAIN",
+            projectId: "YOUR_FIREBASE_PROJECT_ID",
+            storageBucket: "YOUR_FIREBASE_STORAGE_BUCKET",
+            messagingSenderId: "YOUR_FIREBASE_MESSAGING_SENDER_ID",
+            appId: "YOUR_FIREBASE_APP_ID"
+        };
+        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+        
+        let userId = null; 
+        let questionsData = []; 
+        let currentServiceKey = ''; 
+        let currentServiceName = ''; 
+        let userName = ''; // 사용자 이름을 저장할 전역 변수 추가
+
+        // 서비스 정보 객체
+        const services = {
+            "taxi": { name: "택시", icon: "https://i.imgur.com/oTsKZ6C.png" },
+            "daeri": { name: "대리", icon: "https://i.imgur.com/bKEaKet.png" },
+            "bike": { name: "바이크", icon: "https://i.imgur.com/H7TBTpm.png" },
+            "quick": { name: "퀵", icon: "https://i.imgur.com/4AGdjPz.png" },
+            "parking": { name: "주차", icon: "https://i.imgur.com/C4YIppR.png" }
+        };
+
+        // FAQ 데이터 (CSV 형식)
+        const rawFaqData = `1Depth,2Depth,3Depth,4Depth,5Depth
+문의유형,택시,호출장/배차,"호출장이 배차되지 않아요. (피크타임 등)",배차 시스템과 기사님의 수락에 의해 배차 되고 있습니다. 피크 타임 등 호출이 많을 경우 배차가 지연될 수 있습니다.
+문의유형,택시,호출장/배차,"기사님과 연락이 안돼요. (전화, 메시지)",기사님이 운전 중이시거나 다른 용무로 인해 연락을 받지 못할 수 있습니다. 잠시 후 다시 시도해 주세요.
+문의유형,택시,이용내역,"과거 탑승 기록을 보고 싶어요. (최대 1년)","'이용기록' 메뉴에서 최근 1년간의 탑승 기록을 확인할 수 있습니다."
+문의유형,택시,결제/정산,"결제카드를 변경하고 싶어요.","'결제수단 관리' 메뉴에서 카드를 추가하거나 삭제할 수 있습니다."
+문의유형,택시,결제/정산,"쿠폰 적용이 안돼요.","쿠폰마다 사용 조건(최소금액, 유효기간 등)이 다르니 확인 후 이용해 주세요."
+문의유형,대리,호출장/배차,"대리운전 기사님이 안 잡혀요.","주변에 활동 중인 기사님이 없거나, 요청이 많은 지역일 경우 배차가 어려울 수 있습니다."
+문의유형,대리,이용내역,"경유지를 추가하고 싶어요.","호출장 시 '경유지 추가' 버튼을 통해 최대 2곳까지 설정할 수 있습니다. 운행 중 추가는 기사님과 협의가 필요합니다."
+문의유형,대리,결제/정산,"요금은 어떻게 책정되나요?","기본요금에 거리, 시간, 도로 통행료 등이 합산되어 최종 요금이 결정됩니다."
+문의유형,퀵,접수,"어떤 물건까지 보낼 수 있나요?","가로, 세로, 높이의 합이 150cm 이하, 무게 20kg 이하의 물품만 가능합니다. (파손/변질 우려 물품 제외)"
+문의유형,퀵,배송,"배송 시간은 얼마나 걸리나요?","접수 시간, 거리, 교통 상황에 따라 다르며, 앱에서 예상 도착 시간을 확인할 수 있습니다."
+문의유형,바이크,이용방법,"바이크는 어떻게 이용하나요?","앱에서 주변 바이크를 찾은 후, QR코드를 스캔하여 잠금을 해제하고 이용할 수 있습니다."
+문의유형,바이크,이용방법,"운행 가능 지역은 어디인가요?","앱 내 지도에 표시된 서비스 지역 안에서만 운행 및 반납이 가능합니다."
+문의유형,주차,이용방법,"주차장 정산은 어떻게 하나요?","출차 시 정산기의 QR코드 스캔하거나, 앱에 등록된 카드로 자동 정산할 수 있습니다."
+문의유형,주차,결제/정산,"주차 요금 할인을 받고 싶어요?","제휴사 할인, 쿠폰 등 다양한 할인 혜택이 있으니 '내 정보' 메뉴에서 확인해주세요."`;
+
+        const servicePolicyData = {}; // 파싱된 FAQ 데이터를 서비스별로 저장
+        const rows = rawFaqData.trim().split('\n').slice(1); // 헤더 제외
+        rows.forEach(row => {
+            const columns = row.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/); // 콤마로 분리, 따옴표 안의 콤마 무시
+            if (columns.length < 5) return;
+
+            const cleanedColumns = columns.map(field => field.trim().replace(/^"|"$/g, ''));
+
+            const serviceName = cleanedColumns[1];
+            const question = cleanedColumns[2] + " - " + cleanedColumns[3]; // 3Depth - 4Depth
+            const answer = cleanedColumns[4]; // 5Depth
+            
+            if (!servicePolicyData[serviceName]) {
+                servicePolicyData[serviceName] = "";
+            }
+            servicePolicyData[serviceName] += `[고객 질문] ${question}\n[정답 답변] ${answer}\n\n`;
+        });
+
+
+        // DOM 요소 가져오기
+        const pages = document.querySelectorAll('.page');
+        const usernameInput = document.getElementById('username-input');
+        const usernameError = document.getElementById('username-error');
+        const serviceError = document.getElementById('service-error');
+        const serviceIconContainer = document.getElementById('service-icon-container');
+        const startQuizBtn = document.getElementById('start-quiz-btn'); 
+        const quizContainer = document.getElementById('quiz-container');
+        const loaderQuiz = document.getElementById('loader-quiz');
+        const submitBtn = document.getElementById('submit-btn');
+        const scoreText = document.getElementById('score-text');
+        const feedbackText = document.getElementById('feedback-text');
+        const reviewSection = document.getElementById('review-section'); 
+        const backToLoginFromResultBtn = document.getElementById('back-to-login-from-result-btn'); 
+        const backToLoginFromQuizBtn = document.getElementById('back-to-login-from-quiz-btn'); 
+        const userIdDisplay = document.getElementById('user-id-display');
+        const quizTitle = document.getElementById('quiz-title');
+        const showHistoryBtn = document.getElementById('show-history-btn');
+        const historyContainer = document.getElementById('history-container');
+        const backToLoginFromHistoryBtn = document.getElementById('back-to-login-from-history-btn');
+
+
+        // 페이지 전환 함수
+        function navigateTo(pageId) {
+            pages.forEach(page => page.classList.remove('active'));
+            document.getElementById(pageId).classList.add('active');
+        }
+
+        // 서비스 아이콘 버튼 렌더링 함수
+        function renderServiceIcons() {
+            serviceIconContainer.innerHTML = ''; 
+            for (const [key, service] of Object.entries(services)) {
+                const btn = document.createElement('button');
+                btn.className = 'service-icon-btn';
+                btn.dataset.serviceKey = key; 
+                btn.innerHTML = `
+                    <img src="${service.icon}" alt="${service.name} 아이콘">
+                    <span class="font-semibold text-gray-700 text-sm mt-1">${service.name}</span>
+                `;
+                serviceIconContainer.appendChild(btn);
+            }
+        }
+
+        // Firebase 인증 상태 변경 리스너
+        onAuthStateChanged(auth, async (user) => {
+            if (user) {
+                userId = user.uid;
+                // localStorage에서 이름 가져오기 (이전에 저장된 이름이 있다면)
+                const storedUsername = localStorage.getItem('username');
+                if (storedUsername) {
+                    userName = storedUsername;
+                    usernameInput.value = storedUsername; // 입력 필드에 이름 채워넣기
+                }
+            } else {
+                try {
+                    if (initialAuthToken) {
+                        await signInWithCustomToken(auth, initialAuthToken);
+                    } else {
+                        await signInAnonymously(auth);
+                    }
+                    userId = auth.currentUser?.uid || crypto.randomUUID(); 
+                } catch (error) {
+                    console.error("Authentication failed:", error);
+                    userId = crypto.randomUUID(); 
+                }
+            }
+            userIdDisplay.textContent = `User ID: ${userId || '인증 중...'}`;
+        });
+
+        // 서비스 아이콘 클릭 이벤트 핸들러
+        serviceIconContainer.addEventListener('click', (e) => {
+            const btn = e.target.closest('.service-icon-btn');
+            if (btn) {
+                document.querySelectorAll('.service-icon-btn').forEach(b => b.classList.remove('selected'));
+                btn.classList.add('selected');
+                currentServiceKey = btn.dataset.serviceKey;
+                currentServiceName = services[currentServiceKey].name; 
+                serviceError.classList.add('hidden'); 
+                startQuizBtn.disabled = false; 
+            }
+        });
+
+        // '퀴즈 시작' 버튼 클릭 이벤트 핸들러
+        startQuizBtn.addEventListener('click', handleGenerateQuiz);
+
+        // '정답 확인하기' 버튼 클릭 이벤트 핸들러
+        submitBtn.addEventListener('click', handleSubmitQuiz);
+
+        // '결과 페이지에서 처음으로' 버튼 클릭 이벤트 핸들러
+        backToLoginFromResultBtn.addEventListener('click', () => {
+            navigateTo('login-page');
+            document.querySelectorAll('.service-icon-btn').forEach(b => b.classList.remove('selected'));
+            currentServiceKey = '';
+            currentServiceName = '';
+            startQuizBtn.disabled = true;
+            reviewSection.innerHTML = '';
+        });
+
+        // '퀴즈 페이지에서 처음으로' 버튼 클릭 이벤트 핸들러
+        backToLoginFromQuizBtn.addEventListener('click', () => {
+            navigateTo('login-page');
+            document.querySelectorAll('.service-icon-btn').forEach(b => b.classList.remove('selected'));
+            currentServiceKey = '';
+            currentServiceName = '';
+            startQuizBtn.disabled = true;
+            quizContainer.innerHTML = '';
+            submitBtn.classList.add('hidden');
+        });
+
+        // '나의 학습 기록' 버튼 클릭 이벤트 핸들러 (로그인 페이지에 통합)
+        const showHistoryBtnOnLogin = document.createElement('button');
+        showHistoryBtnOnLogin.className = 'text-[#1F2A4D] hover:underline font-semibold mt-4';
+        showHistoryBtnOnLogin.innerHTML = `<i class="fas fa-history mr-1"></i> 나의 학습 기록`;
+        showHistoryBtnOnLogin.addEventListener('click', showHistory);
+        document.getElementById('login-page').appendChild(showHistoryBtnOnLogin); 
+
+
+        // '기록 페이지에서 처음으로' 버튼 클릭 이벤트 핸들러
+        backToLoginFromHistoryBtn.addEventListener('click', () => {
+            navigateTo('login-page');
+        });
+
+        async function handleGenerateQuiz() {
+            console.log('[handleGenerateQuiz] 함수 시작'); 
+            const name = usernameInput.value.trim();
+            if (!name) {
+                usernameError.classList.remove('hidden');
+                console.log('[handleGenerateQuiz] 이름 입력 오류: 사용자 이름이 비어 있습니다.'); 
+                return;
+            } else {
+                usernameError.classList.add('hidden');
+                userName = name; // 전역 변수 userName 업데이트
+                localStorage.setItem('username', name); // localStorage에 저장
+            }
+
+            if (!currentServiceKey) {
+                serviceError.classList.remove('hidden');
+                console.log('[handleGenerateQuiz] 서비스 선택 오류: 서비스가 선택되지 않았습니다.'); 
+                return;
+            } else {
+                serviceError.classList.add('hidden');
+            }
+
+            console.log('[handleGenerateQuiz] 현재 선택된 서비스 이름:', currentServiceName); 
+            
+            // API 호출 대신 미리 정의된 퀴즈 데이터 로드
+            let quizDataToDisplay = getHardcodedQuizData(currentServiceName); 
+            console.log('[handleGenerateQuiz] getHardcodedQuizData 반환 값:', quizDataToDisplay); 
+            
+            if (!Array.isArray(quizDataToDisplay) || quizDataToDisplay.length === 0) {
+                alert("선택된 서비스에 대한 퀴즈 데이터가 없거나 형식이 올바르지 않습니다.");
+                console.error('[handleGenerateQuiz] 퀴즈 데이터 없음 또는 유효하지 않음:', quizDataToDisplay); 
+                loaderQuiz.classList.add('hidden'); 
+                submitBtn.classList.add('hidden'); 
+                return;
+            }
+
+            questionsData = quizDataToDisplay; 
+
+            quizTitle.textContent = `카카오 T ${currentServiceName} 퀴즈`;
+            navigateTo('quiz-page');
+            loaderQuiz.classList.add('hidden'); 
+            quizContainer.innerHTML = ''; 
+            submitBtn.classList.remove('hidden'); 
+
+            console.log('[handleGenerateQuiz] displayQuiz 호출 전 questionsData (글로벌):', questionsData); 
+            displayQuiz(questionsData); 
+            console.log('[handleGenerateQuiz] 함수 종료'); 
+        }
+        
+        // 미리 정의된 퀴즈 데이터를 반환하는 함수
+        function getHardcodedQuizData(serviceName) {
+            console.log('[getHardcodedQuizData] 서비스명:', serviceName); 
+            switch (serviceName) {
+                case "택시":
+                    return [
+                        { "문제유형": "객관식", "질문": "카카오 T 택시에서 과거 탑승 기록을 보려면 어디서 확인하나요?", "선택지": ["① 내 프로필", "② 이용기록", "③ 홈 화면", "④ 고객센터"], "정답": "② 이용기록", "해설": "최근 1년간의 탑승 기록은 '이용기록' 메뉴에서 확인 가능합니다.", "힌트": "앱 내 메뉴 이름을 떠올려보세요." },
+                        { "문제유형": "객관식", "질문": "카카오 T 택시 결제카드를 변경하고 싶을 때 올바른 메뉴는?", "선택지": ["① 설정 > 카드 관리", "② 결제수단 관리", "③ 내 정보 > 결제 정보", "④ 마이페이지 > 결제수단 변경"], "정답": "② 결제수단 관리", "해설": "'결제수단 관리' 메뉴에서 카드를 추가하거나 삭제할 수 있습니다.", "힌트": "결제와 관련된 메뉴명을 찾아보세요." },
+                        { "문제유형": "객관식", "질문": "카카오 T 택시 쿠폰 적용이 안 되는 가장 흔한 이유는?", "선택지": ["① 앱 업데이트 필요", "② 쿠폰 유효기간 만료", "③ 운전자 평가 점수가 낮아서", "④ 목적지 설정 오류"], "정답": "② 쿠폰 유효기간 만료", "해설": "쿠폰마다 사용 조건(최소금액, 유효기간 등)이 다르니 확인 후 이용해 주세요.", "힌트": "쿠폰의 기본적인 제한 사항을 생각해보세요." },
+                        { "문제유형": "객관식", "질문": "피크 타임에 택시 배차가 지연될 수 있는 이유는 무엇인가요?", "선택지": ["① 고객의 네트워크 불안정", "② 기사님의 휴식 시간", "③ 호출이 많고 배차 시스템에 따라", "④ 택시 앱 서버 점검 중"], "정답": "③ 호출이 많고 배차 시스템에 따라", "해설": "배차 시스템과 기사님의 수락에 의해 배차 되고 있습니다. 피크 타임 등 호출이 많을 경우 배차가 지연될 수 있습니다.", "힌트": "일반적인 택시 서비스의 특징을 떠올려보세요." },
+                        { "문제유형": "객관식", "질문": "기사님과 연락이 안 될 때, 고객에게 어떤 안내를 해야 하나요?", "선택지": ["① 바로 다른 택시를 호출하도록 안내", "② 잠시 후 다시 시도해 달라고 안내", "③ 고객센터에 연락하라고 안내", "④ 강제로 통화 연결 시도"], "정답": "② 잠시 후 다시 시도해 달라고 안내", "해설": "기사님이 운전 중이시거나 다른 용무로 인해 연락을 받지 못할 수 있습니다. 잠시 후 다시 시도해 주세요.", "힌트": "가장 상식적인 대처법은 무엇일까요?" },
+                        { "문제유형": "객관식", "질문": "카카오 T 택시 이용 시, 탑승 기록은 최대 몇 년까지 확인할 수 있나요?", "선택지": ["① 3개월", "② 6개월", "③ 1년", "④ 2년"], "정답": "③ 1년", "해설": "'이용기록' 메뉴에서 최근 1년간의 탑승 기록을 확인할 수 있습니다.", "힌트": "탑승 기록 보관 기간은?" },
+                        { "문제유형": "객관식", "질문": "다음 중 택시 쿠폰이 적용되지 않을 수 있는 조건은?", "선택지": ["① 최소 결제 금액 미달", "② 유효 기간 경과", "③ 특정 지역에서만 사용 가능", "④ 이전에 사용한 쿠폰"], "정답": "① 최소 결제 금액 미달", "해설": "쿠폰마다 사용 조건(최소금액, 유효기간 등)이 다르니 확인 후 이용해 주세요.", "힌트": "쿠폰 사용 시 흔히 간과하는 조건은?" },
+                        { "문제유형": "객관식", "질문": "카카오 T 택시 배차는 무엇에 의해 결정되나요?", "선택지": ["① 고객의 평가 점수", "② 배차 시스템과 기사님의 수락", "③ 고객의 호출 빈도", "④ 날씨 상황"], "정답": "② 배차 시스템과 기사님의 수락", "해설": "배차 시스템과 기사님의 수락에 의해 배차 되고 있습니다.", "힌트": "기술적 요소와 사람의 결정이 결합된 과정." },
+                        { "문제유형": "OX", "질문": "카카오 T 택시는 언제나 즉시 배차가 가능하다.", "선택지": ["O", "X"], "정답": "X", "해설": "피크 타임 등 호출이 많을 경우 배차가 지연될 수 있습니다.", "힌트": "절대적인 상황은 흔치 않습니다." },
+                        { "문제유형": "OX", "질문": "택시 결제 수단은 오직 카드만 등록 가능하다.", "선택지": ["O", "X"], "정답": "X", "해설": "'결제수단 관리' 메뉴에서 카드를 추가하거나 삭제할 수 있으며, 여러 결제 수단을 등록할 수 있습니다.", "힌트": "최신 앱 서비스는 다양한 결제 방법을 지원합니다." }
+                    ];
+                case "대리":
+                    return [
+                        { "문제유형": "객관식", "질문": "대리운전 기사님이 안 잡힐 때의 가장 큰 이유는?", "선택지": ["① 고객의 운전 경력 미달", "② 주변에 활동 중인 기사님 부족 또는 요청이 많아서", "③ 고객의 호출 시간이 너무 늦어서", "④ 고객의 차량 종류가 특이해서"], "정답": "② 주변에 활동 중인 기사님 부족 또는 요청이 많아서", "해설": "주변에 활동 중인 기사님이 없거나, 요청이 많은 지역일 경우 배차가 어려울 수 있습니다.", "힌트": "수요와 공급 원리를 생각해 보세요." },
+                        { "문제유형": "객관식", "질문": "카카오 T 대리운전 호출 시 경유지는 최대 몇 곳까지 설정할 수 있나요?", "선택지": ["① 1곳", "② 2곳", "③ 3곳", "④ 제한 없음"], "정답": "② 2곳", "해설": "호출장 시 '경유지 추가' 버튼을 통해 최대 2곳까지 설정할 수 있습니다.", "힌트": "대리운전 앱의 일반적인 경유지 수." },
+                        { "문제유형": "객관식", "질문": "운행 중 대리운전 경유지를 추가하고 싶을 때 필요한 것은?", "선택지": ["① 고객센터에 요청", "② 앱에서 직접 추가", "③ 기사님과 협의", "④ 다음 정차지에서 자동 추가"], "정답": "③ 기사님과 협의", "해설": "운행 중 추가는 기사님과 협의가 필요합니다.", "힌트": "실시간으로 경로를 바꾸는 상황에 필요한 것." },
+                        { "문제유형": "객관식", "질문": "대리운전 요금은 무엇이 합산되어 결정되나요?", "선택지": ["① 기본요금, 거리, 시간, 도로 통행료", "② 기사님 수수료, 거리, 유류비", "③ 고객의 출발 시간, 목적지, 차량 종류", "④ 앱 이용료, 기사님 대기 시간, 유류비"], "정답": "① 기본요금, 거리, 시간, 도로 통행료", "해설": "기본요금에 거리, 시간, 도로 통행료 등이 합산되어 최종 요금이 결정됩니다.", "힌트": "택시 요금과 유사한 구성 요소를 떠올려보세요." },
+                        { "문제유형": "객관식", "질문": "카카오 T 대리운전 이용 시 결제는 어떻게 이루어지나요?", "선택지": ["① 현장에서 기사님께 직접 현금 결제", "② 앱에 등록된 카드로 자동 결제", "③ 운행 종료 후 문자 메시지로 결제 링크 수신", "④ 매월 정기 결제"], "정답": "② 앱에 등록된 카드로 자동 결제", "해설": "앱에 등록된 카드로 편리하게 자동 결제가 이루어집니다.", "힌트": "카카오 T의 편리한 결제 방식." },
+                        { "문제유형": "객관식", "질문": "다음 중 대리운전 배차가 어려운 경우가 아닌 것은?", "선택지": ["① 주변에 활동 중인 기사님이 많은 경우", "② 요청이 많은 지역일 경우", "③ 특정 시간대에 집중적으로 호출이 몰릴 경우", "④ 고객의 출발지가 외진 곳인 경우"], "정답": "① 주변에 활동 중인 기사님이 많은 경우", "해설": "주변에 활동 중인 기사님이 없거나, 요청이 많은 지역일 경우 배차가 어려울 수 있습니다. 기사님이 많은 경우는 배차가 용이합니다.", "힌트": "배차가 어려워지는 원인이 아닌 것." },
+                        { "문제유형": "객관식", "질문": "대리운전 서비스 이용 후, 요금에 대한 문의는 어디로 해야 하나요?", "선택지": ["① 기사님께 직접 문의", "② 앱 내 고객센터", "③ 카카오 T 결제 대행사", "④ 운행 중 신고 번호"], "정답": "② 앱 내 고객센터", "해설": "요금 관련 문의는 앱 내 고객센터를 통해 해결할 수 있습니다.", "힌트": "일반적인 서비스 문의 채널." },
+                        { "문제유형": "객관식", "질문": "대리운전 호출을 취소할 때 위약금이 발생할 수 있는 경우는?", "선택지": ["① 호출 즉시 취소 시", "② 기사님 배정 전 취소 시", "③ 기사님이 출발한 후 취소 시", "④ 앱 오류로 인한 취소 시"], "정답": "③ 기사님이 출발한 후 취소 시", "해설": "기사님이 출발한 후 취소할 경우 정책에 따라 위약금이 발생할 수 있습니다.", "힌트": "기사님에게 손해가 발생할 수 있는 상황." },
+                        { "문제유형": "OX", "질문": "대리운전 요금은 오직 거리에 의해서만 결정된다.", "선택지": ["O", "X"], "정답": "X", "해설": "기본요금에 거리, 시간, 도로 통행료 등이 합산되어 최종 요금이 결정됩니다.", "힌트": "다양한 요소가 요금에 영향을 줍니다." },
+                        { "문제유형": "OX", "질문": "대리운전 호출 시 '경유지 추가'는 운행 도중에도 자유롭게 가능하다.", "선택지": ["O", "X"], "정답": "X", "해설": "호출장 시 '경유지 추가' 버튼을 통해 설정하며, 운행 중 추가는 기사님과 협의가 필요합니다.", "힌트": "운행 중 변경은 특별한 절차가 필요합니다." }
+                    ];
+                case "바이크":
+                    return [
+                        { "문제유형": "객관식", "질문": "카카오 T 바이크를 이용하는 방법 중 올바른 것은 무엇인가요?", "선택지": ["① 바이크에 직접 탑승 후 자동 잠금 해제", "② 앱에서 주변 바이크를 찾은 후 QR코드 스캔", "③ 고객센터에 전화하여 바이크 호출", "④ 지정된 대여소에서만 대여 가능"], "정답": "② 앱에서 주변 바이크를 찾은 후 QR코드 스캔", "해설": "앱에서 주변 바이크를 찾은 후, QR코드를 스캔하여 잠금을 해제하고 이용할 수 있습니다.", "힌트": "최신 공유 모빌리티 서비스 이용 방식을 떠올려보세요." },
+                        { "문제유형": "객관식", "질문": "카카오 T 바이크 운행 가능 지역은 어디인가요?", "선택지": ["① 전국 어디든 가능", "② 주요 대도시만 가능", "③ 앱 내 지도에 표시된 서비스 지역 안에서만", "④ 특정 시간에만 운행 가능 지역이 변동"], "정답": "③ 앱 내 지도에 표시된 서비스 지역 안에서만", "해설": "앱 내 지도에 표시된 서비스 지역 안에서만 운행 및 반납이 가능합니다.", "힌트": "공유 서비스는 특정 지역에 한정됩니다." },
+                        { "문제유형": "객관식", "질문": "바이크 이용 중 배터리가 소진될 경우 어떻게 해야 하나요?", "선택지": ["① 직접 충전소를 찾아 충전한다", "② 근처 바이크 정류장에 반납한다", "③ 앱을 통해 고객센터에 연락한다", "④ 바이크를 그 자리에 두고 간다"], "정답": "③ 앱을 통해 고객센터에 연락한다", "해설": "이용 중 문제가 발생하면 앱 내 고객센터를 통해 문의해야 합니다.", "힌트": "문제 발생 시 기본 대응 방법." },
+                        { "문제유형": "객관식", "질문": "카카오 T 바이크 반납 시 가장 중요한 조건은?", "선택지": ["① 바이크의 청결 상태 유지", "② 앱 내 지도에 표시된 서비스 지역 안에서 반납", "③ 바이크를 지정된 충전 거치대에 놓기", "④ 다음 사용자를 위해 잠금 해제 상태 유지"], "정답": "② 앱 내 지도에 표시된 서비스 지역 안에서 반납", "해설": "앱 내 지도에 표시된 서비스 지역 안에서만 운행 및 반납이 가능합니다.", "힌트": "서비스 지역 밖에서 반납하면 안 됩니다." },
+                        { "문제유형": "객관식", "질문": "바이크 대여 후 잠금이 해제되지 않을 때 조치 방법은?", "선택지": ["① 바이크를 강제로 옮겨본다", "② 앱을 재시작하고 다시 시도한다", "③ 다른 바이크를 찾아 이용한다", "④ 잠금 해제 버튼을 여러 번 누른다"], "정답": "② 앱을 재시작하고 다시 시도한다", "해설": "잠금이 해제되지 않을 경우, 앱을 재시작하거나 고객센터에 문의해야 합니다.", "힌트": "기기 작동 오류 시 첫 번째 시도." },
+                        { "문제유형": "객관식", "질문": "카카오 T 바이크를 이용하기 위한 최소 연령 조건은?", "선택지": ["① 만 14세 이상", "② 만 16세 이상", "③ 만 18세 이상", "④ 운전면허 소지자만 가능"], "정답": "② 만 16세 이상", "해설": "카카오 T 바이크는 만 16세 이상부터 이용 가능합니다.", "힌트": "청소년 이용 가능 연령은?" },
+                        { "문제유형": "객관식", "질문": "바이크 이용 중 사고 발생 시 가장 먼저 해야 할 일은?", "선택지": ["① 바이크를 수리 업체에 맡긴다", "② 앱 내 고객센터에 사고를 신고한다", "③ 바이크를 안전한 곳으로 이동시킨다", "④ 근처 경찰서에 직접 방문한다"], "정답": "② 앱 내 고객센터에 사고를 신고한다", "해설": "사고 발생 시 앱 내 고객센터를 통해 사고를 신고하고 안내에 따라야 합니다.", "힌트": "공유 서비스 사고 처리의 첫 단계." },
+                        { "문제유형": "객관식", "질문": "다음 중 바이크 반납이 올바르지 않은 경우는?", "선택지": ["① 서비스 지역 내 공원 입구", "② 서비스 지역 내 대로변", "③ 서비스 지역 밖 주택가 골목", "④ 서비스 지역 내 아파트 단지 입구"], "정답": "③ 서비스 지역 밖 주택가 골목", "해설": "앱 내 지도에 표시된 서비스 지역 안에서만 운행 및 반납이 가능합니다.", "힌트": "서비스 지역을 벗어나면 안 됩니다." },
+                        { "문제유형": "OX", "질문": "카카오 T 바이크는 잠금 해제 후 사용 중 언제든지 잠글 수 있다.", "선택지": ["O", "X"], "정답": "O", "해설": "잠시 정차하거나 필요에 따라 앱을 통해 잠금을 설정할 수 있습니다.", "힌트": "편의성을 위해 어떤 기능이 있을까요?" },
+                        { "문제유형": "OX", "질문": "바이크를 반납할 때 반드시 전용 거치대에 반납해야 한다.", "선택지": ["O", "X"], "정답": "X", "해설": "앱 내 서비스 지역 안에서 자유롭게 주차하고 반납할 수 있으며, 전용 거치대는 필수가 아닙니다.", "힌트": "거치대 없이도 반납이 가능한가요?" }
+                    ];
+                case "퀵":
+                    return [
+                        { "문제유형": "객관식", "질문": "카카오 T 퀵 서비스로 보낼 수 있는 물건의 최대 무게는?", "선택지": ["① 10kg 이하", "② 20kg 이하", "③ 30kg 이하", "④ 50kg 이하"], "정답": "② 20kg 이하", "해설": "가로, 세로, 높이의 합이 150cm 이하, 무게 20kg 이하의 물품만 가능합니다.", "힌트": "퀵 서비스의 일반적인 무게 제한." },
+                        { "문제유형": "객관식", "질문": "카카오 T 퀵 서비스 배송 시간은 무엇에 따라 달라지나요?", "선택지": ["① 접수 시간, 거리, 교통 상황", "② 고객의 요청 사항만", "③ 기사님의 개인 스케줄", "④ 물품의 가격만"], "정답": "① 접수 시간, 거리, 교통 상황", "해설": "접수 시간, 거리, 교통 상황에 따라 다르며, 앱에서 예상 도착 시간을 확인할 수 있습니다.", "힌트": "배송 시간에 영향을 미치는 현실적인 요소들." },
+                        { "문제유형": "객관식", "질문": "다음 중 카카오 T 퀵 서비스로 보낼 수 없는 물품은?", "선택지": ["① 서류", "② 작은 전자기기", "③ 파손/변질 우려 물품", "④ 옷가지"], "정답": "③ 파손/변질 우려 물품", "해설": "가로, 세로, 높이의 합이 150cm 이하, 무게 20kg 이하의 물품만 가능합니다. (파손/변질 우려 물품 제외)", "힌트": "퀵 서비스가 책임지기 어려운 물품." },
+                        { "문제유형": "객관식", "질문": "퀵 서비스 접수 시 예상 도착 시간은 어디서 확인할 수 있나요?", "선택지": ["① 기사님께 직접 문의", "② 앱 내에서 확인 가능", "③ 고객센터 문의 후 확인", "④ 배송 완료 후 확인 가능"], "정답": "② 앱 내에서 확인 가능", "해설": "앱에서 예상 도착 시간을 확인할 수 있습니다.", "힌트": "대부분의 배송 서비스 앱에서 제공하는 기능." },
+                        { "문제유형": "객관식", "질문": "퀵 서비스 이용 중 배송지 변경이 필요할 때 어떻게 해야 하나요?", "선택지": ["① 기사님께 직접 전화하여 변경 요청", "② 앱 내에서 배송지 수정", "③ 고객센터에 문의하여 변경 절차 진행", "④ 자동 경로 변경 기능 사용"], "정답": "③ 고객센터에 문의하여 변경 절차 진행", "해설": "배송지 변경은 고객센터를 통해 문의하고 절차에 따라 진행해야 합니다.", "힌트": "경로 변경은 중요한 사항입니다." },
+                        { "문제유형": "객관식", "질문": "퀵 서비스 요금은 주로 무엇에 따라 책정되나요?", "선택지": ["① 물품의 부피와 무게", "② 오직 거리에만", "③ 거리와 물품 종류", "④ 시간과 거리, 물품의 부피"], "정답": "④ 시간과 거리, 물품의 부피", "해설": "요금은 거리, 시간, 물품의 부피/무게 등 여러 요소에 따라 책정됩니다.", "힌트": "배송 비용의 구성 요소를 생각해 보세요." },
+                        { "문제유형": "객관식", "질문": "다음 중 퀵 서비스 접수 시 파손/변질 우려 물품으로 분류되지 않는 것은?", "선택지": ["① 유리 제품", "② 신선식품", "③ 일반 서류", "④ 도자기류"], "정답": "③ 일반 서류", "해설": "파손/변질 우려 물품은 제외됩니다. 일반 서류는 해당되지 않습니다.", "힌트": "취급에 특별한 주의가 필요한 것." },
+                        { "문제유형": "객관식", "질문": "퀵 서비스 이용 중 긴급한 상황이 발생했을 때, 가장 먼저 연락해야 할 곳은?", "선택지": ["① 경찰서", "② 고객센터", "③ 기사님", "④ 가까운 편의점"], "정답": "② 고객센터", "해설": "긴급 상황 발생 시 앱 내 고객센터를 통해 신속하게 문의해야 합니다.", "힌트": "서비스 관련 문제 발생 시 공식적인 해결 채널." },
+                        { "문제유형": "OX", "질문": "카카오 T 퀵 서비스로 보낼 수 있는 물건의 가로, 세로, 높이의 합은 200cm를 초과할 수 있다.", "선택지": ["O", "X"], "정답": "X", "해설": "가로, 세로, 높이의 합이 150cm 이하의 물품만 가능합니다.", "힌트": "크기 제한을 다시 확인해 보세요." },
+                        { "문제유형": "OX", "질문": "퀵 배송이 시작되면 예상 도착 시간을 변경할 수 없다.", "선택지": ["O", "X"], "정답": "X", "해설": "앱에서 예상 도착 시간을 실시간으로 확인할 수 있으며, 교통 상황 등에 따라 변동될 수 있습니다.", "힌트": "예상 시간은 변동될 수 있습니다." }
+                    ];
+                case "주차":
+                    return [
+                        { "문제유형": "객관식", "질문": "카카오 T 주차장 정산 방법 중 올바른 것은?", "선택지": ["① 출차 시 현금만 가능", "② 출차 시 정산기의 QR코드 스캔 또는 앱 등록 카드로 자동 정산", "③ 주차장 관리인에게 직접 결제", "④ 앱에서 미리 정산 후 출차"], "정답": "② 출차 시 정산기의 QR코드 스캔 또는 앱 등록 카드로 자동 정산", "해설": "출차 시 정산기의 QR코드를 스캔하거나, 앱에 등록된 카드로 자동 정산할 수 있습니다.", "힌트": "카카오 T 앱의 편리한 결제 기능." },
+                        { "문제유형": "객관식", "질문": "주차 요금 할인을 받고 싶을 때 확인해야 할 메뉴는?", "선택지": ["① 주차장 시설 안내", "② 앱 내 '내 정보' 메뉴", "③ 결제 내역 확인", "④ 차량 등록 정보"], "정답": "② 앱 내 '내 정보' 메뉴", "해설": "제휴사 할인, 쿠폰 등 다양한 할인 혜택이 있으니 '내 정보' 메뉴에서 확인해주세요.", "힌트": "개인 맞춤형 혜택은 어디에 있을까요?" },
+                        { "문제유형": "객관식", "질문": "카카오 T 주차 서비스 이용 중 긴급 상황 발생 시 가장 먼저 해야 할 일은?", "선택지": ["① 주차 관리 사무소 방문", "② 앱 내 고객센터에 문의", "③ 주차된 차량을 이동", "④ 주변 차량에 도움 요청"], "정답": "② 앱 내 고객센터에 문의", "해설": "이용 중 문제가 발생하면 앱 내 고객센터를 통해 문의해야 합니다.", "힌트": "서비스 이용 중 문제 발생 시 공식 채널." },
+                        { "문제유형": "객관식", "질문": "주차 서비스 이용 시, 앱에 등록된 차량 정보를 변경하려면 어디서 해야 하나요?", "선택지": ["① 주차장 정산기에서", "② 앱 내 '내 정보' 메뉴", "③ 고객센터에 전화", "④ 차량 제조사 서비스 센터"], "정답": "② 앱 내 '내 정보' 메뉴", "해설": "'내 정보' 메뉴에서 차량 정보를 관리할 수 있습니다.", "힌트": "개인 정보 관리는 어디에서?" },
+                        { "문제유형": "객관식", "질문": "카카오 T 주차 요금은 주로 무엇에 따라 책정되나요?", "선택지": ["① 주차 시간과 주차장 등급", "② 차량 종류와 주차 구역", "③ 입차 시간과 출차 시간", "④ 오직 주차 시간에만"], "정답": "③ 입차 시간과 출차 시간", "해설": "주차 요금은 주차 시간에 따라 책정되며, 입차와 출차 시간을 기준으로 합니다.", "힌트": "시간 기반 요금제." },
+                        { "문제유형": "객관식", "질문": "다음 중 주차 요금 할인 혜택을 받을 수 있는 방법은?", "선택지": ["① 주차장 관리인에게 직접 요청", "② 제휴사 할인 또는 쿠폰 적용", "③ 친구 추천 코드 사용", "④ 카카오 T 다른 서비스 이용 내역 연동"], "정답": "② 제휴사 할인 또는 쿠폰 적용", "해설": "제휴사 할인, 쿠폰 등 다양한 할인 혜택이 있으니 '내 정보' 메뉴에서 확인해주세요.", "힌트": "일반적인 할인 방법." },
+                        { "문제유형": "객관식", "질문": "주차장 만차 시 앱에서 확인할 수 있는 정보는?", "선택지": ["① 대체 주차장 정보", "② 예상 대기 시간", "③ 만차 해소 예상 시간", "④ 다른 주차장으로 이동하라는 안내"], "정답": "④ 다른 주차장으로 이동하라는 안내", "해설": "만차 시 앱에서 다른 주차장 정보를 확인하거나, 다른 주차장으로 이동하도록 안내합니다.", "힌트": "만차 시 앱이 제공하는 가장 실용적인 기능." },
+                        { "문제유형": "객관식", "질문": "카카오 T 주차 서비스에서 영수증을 확인하려면 어디로 가야 하나요?", "선택지": ["① 이메일로 요청", "② 앱 내 결제 내역", "③ 주차장 관리 사무소", "④ 고객센터 문의"], "정답": "② 앱 내 결제 내역", "해설": "이용 내역 및 영수증은 앱 내 '결제 내역' 또는 '이용 기록'에서 확인할 수 있습니다.", "힌트": "모든 결제 기록은 어디에?" },
+                        { "문제유형": "OX", "질문": "카카오 T 주차는 모든 주차장에서 자동 정산이 가능하다.", "선택지": ["O", "X"], "정답": "X", "해설": "일부 주차장은 QR코드 스캔을 통한 정산이 필요하며, 모든 주차장이 자동 정산을 지원하는 것은 아닙니다.", "힌트": "모든 주차장이 동일한 시스템을 가질까요?" },
+                        { "문제유형": "OX", "질문": "주차 요금은 차량 크기에 따라 항상 다르게 책정된다.", "선택지": ["O", "X"], "정답": "X", "해설": "주로 주차 시간에 따라 요금이 책정되며, 차량 크기에 따른 요금 차등은 특정 주차장에서만 적용될 수 있습니다.", "힌트": "주차 요금의 가장 보편적인 기준." }
+                    ];
+                default:
+                    console.warn('[getHardcodedQuizData] 알 수 없는 서비스명:', serviceName, '. 빈 배열을 반환합니다.'); 
+                    return [];
+            }
+        }
+
+        function displayQuiz(questions) {
+            console.log('[displayQuiz] 함수 시작, 받은 questions:', questions); 
+            if (!Array.isArray(questions)) { 
+                console.error('[displayQuiz] 치명적 오류: questions 매개변수가 배열이 아닙니다. 받은 값:', questions); 
+                quizContainer.innerHTML = `<p class="text-red-500">퀴즈 데이터를 표시하는 데 문제가 발생했습니다. (오류: ${typeof questions})</p>`;
+                return;
+            }
+            quizContainer.innerHTML = ''; 
+            questions.forEach((q, index) => { 
+                const questionEl = document.createElement('div'); // questionEl 선언 위치 변경
+                questionEl.className = 'p-4 border rounded-lg bg-gray-50';
+                questionEl.setAttribute('data-question-index', index); 
+
+                // q 객체 유효성 검사
+                if (!q || typeof q !== 'object') {
+                    console.error(`[displayQuiz] 오류: ${index + 1}번 문제가 유효한 객체가 아닙니다. 받은 값:`, q);
+                    questionEl.className = 'p-4 border rounded-lg bg-red-100 text-red-700'; // 오류 스타일 적용
+                    questionEl.innerHTML = `<p><strong>${index + 1}.</strong> 퀴즈 데이터 로드 오류: 이 문제를 표시할 수 없습니다.</p>`;
+                    quizContainer.appendChild(questionEl);
+                    return; // 현재 문제 건너뛰기
+                }
+
+                let optionsHtml = '';
+                // q.선택지 (q.options)가 배열인지 확인
+                if (!Array.isArray(q.선택지)) {
+                    console.error(`[displayQuiz] 오류: ${index + 1}번 문제의 선택지가 배열이 아닙니다. 받은 값:`, q.선택지);
+                    optionsHtml = `<p class="text-red-500">선택지 데이터 오류.</p>`;
+                } else {
+                    q.선택지.forEach((option) => {
+                        optionsHtml += `
+                            <label class="flex items-center p-2 rounded-md hover:bg-gray-200 cursor-pointer">
+                                <input type="radio" name="q${index}" value="${option}" class="mr-3 h-4 w-4 text-[#1F2A4D] focus:ring-[#1F2A4D]">
+                                <span>${option}</span>
+                            </label>
+                        `;
+                    });
+                }
+
+                questionEl.innerHTML = `
+                    <p class="font-semibold mb-3">${index + 1}. ${q.질문}</p>
+                    <div class="space-y-2" role="radiogroup">
+                        ${optionsHtml}
+                    </div>
+                    <button class="hint-btn text-sm text-blue-600 underline mt-2 mb-1">힌트 보기</button>
+                    <div class="hint-text hidden text-sm text-gray-600 mt-1">💡 ${q.힌트 || '힌트 없음'}</div>
+                    <div class="explanation hidden mt-3">
+                        <p><strong>정답:</strong> <span class="correct-answer-display font-bold"></span></p>
+                        <p class="mt-1"><strong>해설:</strong> <span class="explanation-text"></span></p>
+                    </div>
+                `;
+                quizContainer.appendChild(questionEl);
+            });
+
+            quizContainer.querySelectorAll('.hint-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const hintText = btn.nextElementSibling;
+                    hintText.classList.toggle('hidden');
+                });
+            });
+            console.log('[displayQuiz] 함수 종료, 퀴즈가 성공적으로 표시되었습니다.'); 
+        }
+        
+        async function handleSubmitQuiz() {
+            let score = 0;
+            const total = questionsData.length;
+            const wrongAnswers = [];
+
+            questionsData.forEach((q, i) => {
+                const selectedOptionElement = document.querySelector(`input[name="q${i}"]:checked`);
+                const questionElement = document.querySelector(`[data-question-index="${i}"]`);
+                const explanationDiv = questionElement.querySelector('.explanation');
+                const correctAnswerDisplay = questionElement.querySelector('.correct-answer-display');
+                const explanationText = questionElement.querySelector('.explanation-text');
+
+                correctAnswerDisplay.textContent = q.정답;
+                explanationText.textContent = q.해설;
+                explanationDiv.classList.remove('hidden');
+
+                if (selectedOptionElement) {
+                    const userAnswer = selectedOptionElement.value;
+                    if (userAnswer === q.정답) {
+                        score++;
+                        questionElement.classList.add('question-correct');
+                        questionElement.classList.remove('question-incorrect');
+                    } else {
+                        wrongAnswers.push({ 질문: q.질문, 정답: q.정답, 해설: q.해설 });
+                        questionElement.classList.add('question-incorrect');
+                        questionElement.classList.remove('question-correct');
+                        Array.from(questionElement.querySelectorAll(`input[name="q${i}"]`)).forEach(input => {
+                            if (input.value === q.정답) {
+                                input.parentElement.classList.add('answer-correct');
+                            }
+                            if (input.checked && input.value !== q.정답) {
+                                input.parentElement.classList.add('answer-incorrect');
+                            }
+                        });
+                    }
+                } else {
+                    wrongAnswers.push({ 질문: q.질문, 정답: q.정답, 해설: q.해설 });
+                    questionElement.classList.add('question-incorrect');
+                    questionElement.classList.remove('question-correct');
+                    Array.from(questionElement.querySelectorAll(`input[name="q${i}"]`)).forEach(input => {
+                        if (input.value === q.정답) {
+                            input.parentElement.classList.add('answer-correct');
+                        }
+                    });
+                }
+
+                Array.from(questionElement.querySelectorAll(`input[name="q${i}"]`)).forEach(input => {
+                    input.disabled = true;
+                });
+            });
+
+            const percentage = total > 0 ? Math.round((score / total) * 100) : 0;
+
+            navigateTo('result-page');
+            scoreText.textContent = `${total}문제 중 ${score}문제 정답! (${percentage}점)`;
+            
+            if (percentage === 100) {
+                feedbackText.textContent = '완벽해요! 모든 내용을 잘 숙지하고 있네요.';
+            } else if (percentage >= 70) {
+                feedbackText.textContent = '좋아요! 몇 가지 실수만 있어요.';
+            } else {
+                feedbackText.textContent = '복습이 필요해요. 아래 내용을 확인해 보세요.';
+            }
+
+            reviewSection.innerHTML = wrongAnswers.map(w => `
+                <div class='border p-3 my-2 rounded bg-red-50'>
+                    <p class="font-semibold text-gray-800"><strong>질문:</strong> ${w.질문}</p>
+                    <p class="text-red-500"><strong>정답:</strong> ${w.정답}</p> 
+                    <p class="text-gray-600 text-sm"><strong>해설:</strong> ${w.해설}</p>
+                </div>
+            `).join('');
+
+            if (userId) { 
+                try {
+                    await addDoc(collection(db, "artifacts", appIdentifier, "users", userId, "quizResults"), {
+                        username: userName, // 전역 userName 변수 사용
+                        score,
+                        totalQuestions: total,
+                        percentage: percentage,
+                        serviceName: currentServiceName, 
+                        createdAt: Timestamp.now()
+                    });
+                } 
+                catch (e) {
+                    console.error("학습 기록 저장 오류: ", e);
+                }
+            } else { 
+                console.warn("userId가 없어 학습 기록을 저장할 수 없습니다.");
+            }
+        }
+
+        async function showHistory() {
+            if (!userId) { navigateTo('history-page'); return; }
+            historyContainer.innerHTML = `<div class="flex justify-center"><div class="loader"></div></div>`;
+            navigateTo('history-page');
+            try {
+                const q = query(collection(db, "artifacts", appIdentifier, "users", userId, "quizResults"));
+                const snapshot = await getDocs(q);
+                const results = [];
+                snapshot.forEach(doc => results.push(doc.data()));
+                results.sort((a, b) => b.createdAt.toMillis() - a.createdAt.toMillis());
+                if (results.length === 0) {
+                    historyContainer.innerHTML = `<p class="text-gray-500">아직 학습 기록이 없습니다.</p>`;
+                    return;
+                }
+                historyContainer.innerHTML = '';
+                results.forEach(data => {
+                    const date = data.createdAt.toDate();
+                    const formattedDate = `${date.getFullYear()}.${date.getMonth() + 1}.${date.getDate()} ${date.getHours()}:${String(date.getMinutes()).padStart(2, '0')}`;
+                    const item = document.createElement('div');
+                    item.className = 'flex justify-between items-center p-4 border rounded-lg';
+                    item.innerHTML = `
+                        <div>
+                            <p class="font-semibold text-gray-800">${data.serviceName || '학습'}</p>
+                            <p class="text-sm text-gray-500">${formattedDate}</p>
+                            <p class="text-sm text-gray-500">학습자: ${data.username || '이름없음'}</p> 
+                        </div>
+                        <div class="text-lg font-bold ${data.percentage >= 80 ? 'text-green-600' : 'text-orange-500'}">${data.percentage.toFixed(0)}점</div>
+                    `;
+                    historyContainer.appendChild(item);
+                });
+            } catch(e) {
+                console.error("기록 가져오기 오류:", e);
+                historyContainer.innerHTML = `<p class="text-red-500">기록을 불러오는 데 실패했습니다.</p>`;
+            }
+        }
+
+        // 초기 렌더링
+        renderServiceIcons();
+    </script>
+</body>
+</html>
